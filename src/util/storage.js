@@ -1,13 +1,13 @@
 import startOfToday from "date-fns/startOfToday";
 
 class Storage {
-  save(githubData) {
+  saveGithubData(githubData) {
     githubData.hash = generateHash();
     const githubDataJson = JSON.stringify(githubData);
     localStorage.setItem("vdg-github-data", githubDataJson);
   }
 
-  load() {
+  loadGithubData() {
     const githubDataJson = localStorage.getItem("vdg-github-data");
     if (githubDataJson) {
       const githubData = JSON.parse(githubDataJson);
@@ -16,6 +16,21 @@ class Storage {
       }
     }
     return null;
+  }
+
+  saveSettings(settings) {
+    const settingsJson = JSON.stringify(settings);
+    localStorage.setItem("vdg-settings", settingsJson);
+  }
+
+  loadSettings() {
+    const settingsJson = localStorage.getItem("vdg-settings");
+    if (settingsJson) {
+      return JSON.parse(settingsJson);
+    }
+    return {
+      theme: "light",
+    };
   }
 }
 

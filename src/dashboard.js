@@ -6,10 +6,11 @@ import dateFnsParse from "date-fns/parse";
 import "@vaadin/button";
 import "@vaadin/date-picker";
 import "@vaadin/grid";
+import { columnBodyRenderer } from "@vaadin/grid/lit";
 import "@vaadin/tabs";
 import "@vaadin/tabsheet";
 import "@vaadin/tooltip";
-import { columnBodyRenderer } from "@vaadin/grid/lit";
+import { icons } from "./util/icons";
 import { github } from "./util/github";
 import { storage } from "./util/storage";
 import { lumoTheme } from "./util/theme";
@@ -33,13 +34,22 @@ export class Dashboard extends LitElement {
         font-size: var(--lumo-font-size-xl);
       }
 
+      .dashboard {
+        --dashboard-panel-background: var(--lumo-base-color);
+        min-height: 100vh;
+      }
+
+      .dashboard[theme="dark"] {
+        --dashboard-panel-background: var(--lumo-tint-10pct);
+      }
+
       .header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         flex-wrap: wrap;
         padding: var(--lumo-space-s) var(--lumo-space-xl);
-        background: var(--lumo-base-color);
+        background: var(--dashboard-panel-background);
         box-shadow: var(--lumo-box-shadow-s);
       }
 
@@ -52,7 +62,7 @@ export class Dashboard extends LitElement {
         color: var(--lumo-contrast-80pct);
       }
 
-      .header .help-icon svg {
+      .header svg {
         vertical-align: bottom;
       }
 
@@ -94,7 +104,7 @@ export class Dashboard extends LitElement {
       }
 
       .panel > .card {
-        background: var(--lumo-base-color);
+        background: var(--dashboard-panel-background);
         box-shadow: var(--lumo-box-shadow-s);
         border-radius: var(--lumo-border-radius-l);
       }
@@ -137,6 +147,7 @@ export class Dashboard extends LitElement {
       }
 
       .panel.issues vaadin-grid {
+        --lumo-base-color: transparent;
         height: 300px;
       }
 
@@ -156,6 +167,7 @@ export class Dashboard extends LitElement {
     rangeStart: { type: Date },
     githubData: { type: Object },
     dashboard: { type: Object },
+    settings: { type: Object },
   };
 
   constructor() {
@@ -163,10 +175,11 @@ export class Dashboard extends LitElement {
     this.loading = false;
     this.dataStart = subDays(startOfToday(), 30);
     this.rangeStart = subDays(startOfToday(), 14);
+    this.settings = storage.loadSettings();
   }
 
   async firstUpdated() {
-    this.githubData = storage.load();
+    this.githubData = storage.loadGithubData();
     if (!this.githubData) {
       await this.refreshData();
     } else {
@@ -176,134 +189,129 @@ export class Dashboard extends LitElement {
 
   render() {
     return html`
-      <div class="header">
-        <h1>DS Team Github Dashboard</h1>
-        <div class="actions">
-          <vaadin-date-picker
-            label="Show data since"
-            theme="small"
-            .min="${dateFnsFormat(this.dataStart, "yyyy-MM-dd")}"
-            .max="${dateFnsFormat(new Date(), "yyyy-MM-dd")}"
-            .value="${dateFnsFormat(this.rangeStart, "yyyy-MM-dd")}"
-            @change="${this.handleRangeStartChange}"
-          ></vaadin-date-picker>
-
-          <vaadin-button theme="small" @click="${this.refreshData}"
-            >Refresh data
-          </vaadin-button>
-          <span id="help-icon" class="help-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="icon icon-tabler icon-tabler-help"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              stroke-width="2"
-              stroke="currentColor"
-              fill="none"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+      <div class="dashboard" theme="${this.settings.theme}">
+        <div class="header">
+          <h1>DS Team Github Dashboard</h1>
+          <div class="actions">
+            <vaadin-button
+              theme="tertiary small"
+              @click="${this.handleToggleTheme}"
             >
-              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-              <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path>
-              <path d="M12 17l0 .01"></path>
-              <path
-                d="M12 13.5a1.5 1.5 0 0 1 1 -1.5a2.6 2.6 0 1 0 -3 -4"
-              ></path>
-            </svg>
-          </span>
-          <vaadin-tooltip
-            for="help-icon"
-            text="Github data is updated once per day and then cached in local storage. 'Refresh data' forces an update. Data contains pulls and issues from the last 30 days, which is the maximum time range that can be configured."
-          ></vaadin-tooltip>
+              ${icons.moon()}
+            </vaadin-button>
+            <vaadin-date-picker
+              label="Show data since"
+              theme="small"
+              .min="${dateFnsFormat(this.dataStart, "yyyy-MM-dd")}"
+              .max="${dateFnsFormat(new Date(), "yyyy-MM-dd")}"
+              .value="${dateFnsFormat(this.rangeStart, "yyyy-MM-dd")}"
+              @change="${this.handleRangeStartChange}"
+            ></vaadin-date-picker>
+
+            <vaadin-button theme="small" @click="${this.refreshData}"
+              >Refresh data
+            </vaadin-button>
+            <span id="help-icon" class="help-icon"> ${icons.help()} </span>
+            <vaadin-tooltip
+              for="help-icon"
+              text="Github data is updated once per day and then cached in local storage. 'Refresh data' forces an update. Data contains pulls and issues from the last 30 days, which is the maximum time range that can be configured."
+            ></vaadin-tooltip>
+          </div>
         </div>
+        ${this.loading ? html` <div>Loading...</div>` : null}
+        ${this.dashboard
+          ? html`
+              <div class="main">
+                <div class="section flex">
+                  ${this.renderStats("Merged PRs", [
+                    {
+                      label: "Features",
+                      value: this.dashboard.features.length,
+                    },
+                    { label: "Fixes", value: this.dashboard.fixes.length },
+                    {
+                      label: "Refactors",
+                      value: this.dashboard.refactors.length,
+                    },
+                    { label: "Chores", value: this.dashboard.chores.length },
+                  ])}
+                  ${this.renderStats("BFPs", [
+                    {
+                      label: "Closed",
+                      value: this.dashboard.closedWarrantyIssues.length,
+                    },
+                    {
+                      label: "Open",
+                      value: this.dashboard.openWarrantyIssues.length,
+                    },
+                  ])}
+                  ${this.renderStats("Contributions", [
+                    {
+                      label: "Contributions",
+                      value: this.dashboard.contributions.length,
+                    },
+                  ])}
+                </div>
+
+                <div class="section grid">
+                  <div class="panel issues">
+                    <h2>Merged PRs</h2>
+                    <div class="card">
+                      <vaadin-tabsheet>
+                        <vaadin-tabs slot="tabs">
+                          <vaadin-tab id="features-tab">Features</vaadin-tab>
+                          <vaadin-tab id="fixes-tab">Fixes</vaadin-tab>
+                          <vaadin-tab id="refactors-tab">Refactors</vaadin-tab>
+                          <vaadin-tab id="chores-tab">Chores</vaadin-tab>
+                          <vaadin-tab id="contributions-tab"
+                            >Contributions
+                          </vaadin-tab>
+                        </vaadin-tabs>
+                        <div tab="features-tab">
+                          ${this.renderGrid(this.dashboard.features)}
+                        </div>
+                        <div tab="fixes-tab">
+                          ${this.renderGrid(this.dashboard.fixes)}
+                        </div>
+                        <div tab="refactors-tab">
+                          ${this.renderGrid(this.dashboard.refactors)}
+                        </div>
+                        <div tab="chores-tab">
+                          ${this.renderGrid(this.dashboard.chores)}
+                        </div>
+                        <div tab="contributions-tab">
+                          ${this.renderGrid(this.dashboard.contributions, true)}
+                        </div>
+                      </vaadin-tabsheet>
+                    </div>
+                  </div>
+
+                  <div class="panel issues">
+                    <h2>BFPs</h2>
+                    <div class="card">
+                      <vaadin-tabsheet>
+                        <vaadin-tabs slot="tabs">
+                          <vaadin-tab id="closed-warranty-tab"
+                            >Closed
+                          </vaadin-tab>
+                          <vaadin-tab id="open-warranty-tab">Open</vaadin-tab>
+                        </vaadin-tabs>
+                        <div tab="closed-warranty-tab">
+                          ${this.renderGrid(
+                            this.dashboard.closedWarrantyIssues,
+                          )}
+                        </div>
+                        <div tab="open-warranty-tab">
+                          ${this.renderGrid(this.dashboard.openWarrantyIssues)}
+                        </div>
+                      </vaadin-tabsheet>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `
+          : null}
       </div>
-      ${this.loading ? html` <div>Loading...</div>` : null}
-      ${this.dashboard
-        ? html`
-            <div class="main">
-              <div class="section flex">
-                ${this.renderStats("Merged PRs", [
-                  { label: "Features", value: this.dashboard.features.length },
-                  { label: "Fixes", value: this.dashboard.fixes.length },
-                  {
-                    label: "Refactors",
-                    value: this.dashboard.refactors.length,
-                  },
-                  { label: "Chores", value: this.dashboard.chores.length },
-                ])}
-                ${this.renderStats("BFPs", [
-                  {
-                    label: "Closed",
-                    value: this.dashboard.closedWarrantyIssues.length,
-                  },
-                  {
-                    label: "Open",
-                    value: this.dashboard.openWarrantyIssues.length,
-                  },
-                ])}
-                ${this.renderStats("Contributions", [
-                  {
-                    label: "Contributions",
-                    value: this.dashboard.contributions.length,
-                  },
-                ])}
-              </div>
-
-              <div class="section grid">
-                <div class="panel issues">
-                  <h2>Merged PRs</h2>
-                  <div class="card">
-                    <vaadin-tabsheet>
-                      <vaadin-tabs slot="tabs">
-                        <vaadin-tab id="features-tab">Features</vaadin-tab>
-                        <vaadin-tab id="fixes-tab">Fixes</vaadin-tab>
-                        <vaadin-tab id="refactors-tab">Refactors</vaadin-tab>
-                        <vaadin-tab id="chores-tab">Chores</vaadin-tab>
-                        <vaadin-tab id="contributions-tab"
-                          >Contributions
-                        </vaadin-tab>
-                      </vaadin-tabs>
-                      <div tab="features-tab">
-                        ${this.renderGrid(this.dashboard.features)}
-                      </div>
-                      <div tab="fixes-tab">
-                        ${this.renderGrid(this.dashboard.fixes)}
-                      </div>
-                      <div tab="refactors-tab">
-                        ${this.renderGrid(this.dashboard.refactors)}
-                      </div>
-                      <div tab="chores-tab">
-                        ${this.renderGrid(this.dashboard.chores)}
-                      </div>
-                      <div tab="contributions-tab">
-                        ${this.renderGrid(this.dashboard.contributions, true)}
-                      </div>
-                    </vaadin-tabsheet>
-                  </div>
-                </div>
-
-                <div class="panel issues">
-                  <h2>BFPs</h2>
-                  <div class="card">
-                    <vaadin-tabsheet>
-                      <vaadin-tabs slot="tabs">
-                        <vaadin-tab id="closed-warranty-tab">Closed</vaadin-tab>
-                        <vaadin-tab id="open-warranty-tab">Open</vaadin-tab>
-                      </vaadin-tabs>
-                      <div tab="closed-warranty-tab">
-                        ${this.renderGrid(this.dashboard.closedWarrantyIssues)}
-                      </div>
-                      <div tab="open-warranty-tab">
-                        ${this.renderGrid(this.dashboard.openWarrantyIssues)}
-                      </div>
-                    </vaadin-tabsheet>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `
-        : null}
     `;
   }
 
@@ -349,31 +357,19 @@ export class Dashboard extends LitElement {
           ${columnBodyRenderer(
             (issue) => html`
               <a href="${issue.url}" target="_blank">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="icon icon-tabler icon-tabler-external-link"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  stroke-width="2"
-                  stroke="currentColor"
-                  fill="none"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                  <path
-                    d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"
-                  ></path>
-                  <path d="M11 13l9 -9"></path>
-                  <path d="M15 4h5v5"></path>
-                </svg>
+                ${icons.externalLink()}
               </a>
             `,
           )}
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
+  }
+
+  handleToggleTheme() {
+    const newTheme = this.settings.theme === "dark" ? "light" : "dark";
+    this.settings = { ...this.settings, theme: newTheme };
+    storage.saveSettings(this.settings);
   }
 
   handleRangeStartChange(e) {
@@ -384,7 +380,7 @@ export class Dashboard extends LitElement {
   async refreshData() {
     this.loading = true;
     this.githubData = await refreshGithubData(this.dataStart);
-    storage.save(this.githubData);
+    storage.saveGithubData(this.githubData);
     this.refreshDashboard();
     this.loading = false;
   }
@@ -419,7 +415,6 @@ async function refreshGithubData(startDate) {
     closedWarrantyIssues,
     openWarrantyIssues,
   };
-  storage.save(githubData);
 
   return githubData;
 }
