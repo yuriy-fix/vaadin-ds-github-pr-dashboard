@@ -109,25 +109,58 @@ export class Dashboard extends LitElement {
         border-radius: var(--lumo-border-radius-l);
       }
 
-      .stats .card {
-        padding: var(--lumo-space-m);
-      }
-
-      .stats .title {
+      .panel.loading .title {
+        display: flex;
+        align-items: center;
         font-weight: bold;
       }
 
-      .stats .list {
+      .panel.loading .progress {
+        padding-left: calc(var(--lumo-space-s) + 20px);
+        color: var(--lumo-secondary-text-color);
+      }
+
+      .panel.loading .spinner {
+        display: inline-block;
+        position: relative;
+        width: 20px;
+        height: 20px;
+        margin-right: var(--lumo-space-s);
+      }
+
+      .panel.loading .spinner svg {
+        position: absolute;
+        animation: spinner 1.2s linear infinite;
+      }
+
+      @keyframes spinner {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .panel.stats .card {
+        padding: var(--lumo-space-m);
+      }
+
+      .panel.stats .title {
+        font-weight: bold;
+      }
+
+      .panel.stats .list {
         display: flex;
         margin-top: var(--lumo-space-m);
         gap: var(--lumo-space-m);
       }
 
-      .stats .stat .value {
+      .panel.stats .stat .value {
         font-size: var(--lumo-font-size-xl);
       }
 
-      .stats .stat .label {
+      .panel.stats .stat .label {
         color: var(--lumo-secondary-text-color);
         font-size: var(--lumo-font-size-s);
       }
@@ -163,6 +196,7 @@ export class Dashboard extends LitElement {
 
   static properties = {
     loading: { type: Boolean },
+    loadingProgress: { type: String },
     dataStart: { type: Date },
     rangeStart: { type: Date },
     githubData: { type: Object },
@@ -173,6 +207,7 @@ export class Dashboard extends LitElement {
   constructor() {
     super();
     this.loading = false;
+    this.loadingProgress = "";
     this.dataStart = subDays(startOfToday(), 30);
     this.rangeStart = subDays(startOfToday(), 14);
     this.settings = storage.loadSettings();
@@ -218,10 +253,20 @@ export class Dashboard extends LitElement {
             ></vaadin-tooltip>
           </div>
         </div>
-        ${this.loading ? html` <div>Loading...</div>` : null}
-        ${this.dashboard
-          ? html`
-              <div class="main">
+        <div class="main">
+          ${this.loading
+            ? html` <div class="section flex">
+                <div class="panel loading">
+                  <div class="title">
+                    <div class="spinner">${icons.spinner()}</div>
+                    <span>Loading Github Data</span>
+                  </div>
+                  <div class="progress">${this.loadingProgress}</div>
+                </div>
+              </div>`
+            : null}
+          ${this.dashboard
+            ? html`
                 <div class="section flex">
                   ${this.renderStats("Merged PRs", [
                     {
@@ -308,9 +353,9 @@ export class Dashboard extends LitElement {
                     </div>
                   </div>
                 </div>
-              </div>
-            `
-          : null}
+              `
+            : null}
+        </div>
       </div>
     `;
   }
@@ -379,7 +424,11 @@ export class Dashboard extends LitElement {
 
   async refreshData() {
     this.loading = true;
-    this.githubData = await refreshGithubData(this.dataStart);
+    this.loadingProgress = "";
+    this.dashboard = null;
+    this.githubData = await refreshGithubData(this.dataStart, (progress) => {
+      this.loadingProgress = progress;
+    });
     storage.saveGithubData(this.githubData);
     this.refreshDashboard();
     this.loading = false;
@@ -392,7 +441,7 @@ export class Dashboard extends LitElement {
 
 customElements.define("vgd-dashboard", Dashboard);
 
-async function refreshGithubData(startDate) {
+async function refreshGithubData(startDate, progressCallback) {
   // TODO: Extract to config
   const repos = ["vaadin/web-components", "vaadin/flow-components"];
 
@@ -400,12 +449,19 @@ async function refreshGithubData(startDate) {
   let closedWarrantyIssues = [];
   let openWarrantyIssues = [];
   for (const repo of repos) {
-    pulls = pulls.concat(await github.loadRecentlyMergedPulls(repo, startDate));
+    pulls = pulls.concat(
+      await github.loadRecentlyMergedPulls(repo, startDate, progressCallback),
+    );
     closedWarrantyIssues = closedWarrantyIssues.concat(
-      await github.loadRecentlyClosedIssues(repo, startDate, "BFP"),
+      await github.loadRecentlyClosedIssues(
+        repo,
+        startDate,
+        "BFP",
+        progressCallback,
+      ),
     );
     openWarrantyIssues = openWarrantyIssues.concat(
-      await github.loadOpenIssues(repo, "BFP"),
+      await github.loadOpenIssues(repo, "BFP", progressCallback),
     );
   }
 

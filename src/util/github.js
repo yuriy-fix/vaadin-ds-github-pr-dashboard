@@ -1,7 +1,11 @@
-async function loadRecentlyMergedPulls(repo, startDate) {
+async function loadRecentlyMergedPulls(repo, startDate, progressCallback) {
   async function fetchPage(page) {
     let pagePulls = [];
-    console.log(`load recently merged pulls: repo=${repo}, page=${page}`);
+    if (progressCallback) {
+      progressCallback(
+        `Loading recently merged pulls: repo=${repo}, page=${page}`,
+      );
+    }
     await fetch(
       `https://api.github.com/repos/${repo}/pulls?sort=updated&direction=desc&state=closed&per_page=100&page=${page}`,
     )
@@ -33,10 +37,19 @@ async function loadRecentlyMergedPulls(repo, startDate) {
   return pulls;
 }
 
-async function loadRecentlyClosedIssues(repo, startDate, labels) {
+async function loadRecentlyClosedIssues(
+  repo,
+  startDate,
+  labels,
+  progressCallback,
+) {
   async function fetchPage(page) {
     let pageIssues = [];
-    console.log(`load recently closed issues: repo=${repo}, page=${page}`);
+    if (progressCallback) {
+      progressCallback(
+        `Loading recently closed issues: repo=${repo}, labels=${labels}, page=${page}`,
+      );
+    }
     await fetch(
       `https://api.github.com/repos/${repo}/issues?sort=updated&direction=desc&state=closed&labels=${labels}&per_page=100&page=${page}`,
     )
@@ -68,10 +81,14 @@ async function loadRecentlyClosedIssues(repo, startDate, labels) {
   return issues;
 }
 
-async function loadOpenIssues(repo, labels) {
+async function loadOpenIssues(repo, labels, progressCallback) {
   async function fetchPage(page) {
     let pageIssues = [];
-    console.log(`load open issues: repo=${repo}, page=${page}`);
+    if (progressCallback) {
+      progressCallback(
+        `Loading open issues: repo=${repo}, labels=${labels}, page=${page}`,
+      );
+    }
     await fetch(
       `https://api.github.com/repos/${repo}/issues?sort=updated&direction=desc&state=open&labels=${labels}&per_page=100&page=${page}`,
     )
