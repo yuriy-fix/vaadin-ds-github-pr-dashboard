@@ -226,7 +226,7 @@ export class Dashboard extends LitElement {
     return html`
       <div class="dashboard" theme="${this.settings.theme}">
         <div class="header">
-          <h1>DS Team Github Dashboard</h1>
+          <h1>Vaadin DS Github Dashboard</h1>
           <div class="actions">
             <vaadin-button
               theme="tertiary small"
