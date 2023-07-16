@@ -118,6 +118,7 @@ export class Dashboard extends LitElement {
       .panel.loading .progress {
         padding-left: calc(var(--lumo-space-s) + 20px);
         color: var(--lumo-secondary-text-color);
+        white-space: pre;
       }
 
       .panel.loading .spinner {
@@ -427,7 +428,7 @@ export class Dashboard extends LitElement {
     this.loadingProgress = "";
     this.dashboard = null;
     this.githubData = await refreshGithubData(this.dataStart, (progress) => {
-      this.loadingProgress = progress;
+      this.loadingProgress += progress + "\n";
     });
     storage.saveGithubData(this.githubData);
     this.refreshDashboard();
