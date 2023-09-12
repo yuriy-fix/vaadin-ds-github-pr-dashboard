@@ -1,3 +1,3 @@
-# Vaadin DS Github Dashboard
+# Vaadin DS PRs Github Dashboard
 
-Dashboard for showing stats, issues and pull requests from the Vaadin Design System team's Github repositories.
+Dashboard for showing opened pull requests from the Vaadin Design System team's Github repositories.
