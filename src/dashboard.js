@@ -372,7 +372,7 @@ customElements.define("vgd-dashboard", Dashboard);
 
 async function refreshGithubData(startDate, progressCallback) {
   // TODO: Extract to config
-  const repos = ["vaadin/web-components", "vaadin/flow-components"];
+  const repos = ["vaadin/web-components", "vaadin/flow-components", "vaadin/react-components"];
 
   let pulls = [];
   for (const repo of repos) {
